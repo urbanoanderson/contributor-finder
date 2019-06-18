@@ -1,1 +1,1 @@
-contributor-finder
+Python script to search for contributors of public repos with certain keywords

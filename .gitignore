@@ -1,2 +1,5 @@
 *.csv
+*.log
 token.ini
+/repos
+/__pycache__

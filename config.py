@@ -12,11 +12,15 @@ class Configuration:
 
     githubAPI = None
 
-    def __init__(self):
-        self.set_default_values()
-
+    def __init__(self, configfile=None):
         if(not os.path.isdir('repos')):
             os.mkdir('repos')
+        
+        # Init attributes
+        if(configfile == None):
+            self.set_default_values()
+        else:
+            self.load_configuration(configfile)
     
     def set_default_values(self):
         self.KEYWORDS = []

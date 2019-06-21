@@ -2,4 +2,5 @@
 *.log
 token.ini
 /repos
+/temp
 /__pycache__

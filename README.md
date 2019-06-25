@@ -25,4 +25,5 @@ $   pip3 install python-dateutil
 https://pygithub.readthedocs.io/en/latest/github.html
 https://pygithub.readthedocs.io/en/latest/examples/Repository.html
 https://help.github.com/en/articles/understanding-the-search-syntax
+https://security.google.com/settings/security/apppasswords
 ```

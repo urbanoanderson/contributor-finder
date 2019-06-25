@@ -1,6 +1,7 @@
 *.csv
 *.log
 token.ini
+email_settings.ini
 /repos
 /temp
 /__pycache__

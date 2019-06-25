@@ -1,0 +1,5 @@
+Hello <CNAME>,
+
+Your name is <CNAME>
+Your github username is <CLOGIN>
+Your email is <CEMAIL>

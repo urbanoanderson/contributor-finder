@@ -7,6 +7,7 @@ from dateutil.relativedelta import relativedelta
 import csv
 import github
 import time
+import math
 
 def search_contributors(cfg, repo):
     commits = repo.get_commits(since=(datetime.now() - relativedelta(months=cfg.MONTHS_FOR_COMMITS)))
@@ -17,6 +18,14 @@ def search_contributors(cfg, repo):
     icon = ["\\", "|", "/", "-"]
     i = 0
     for commit in commits:
+        #wait for rate recharge
+        cur_rate = cfg.githubAPI.rate_limiting
+        if(cur_rate[0] < 10):
+            seconds_left = math.ceil(cfg.githubAPI.rate_limiting_resettime - time.time())
+            seconds_to_wait = max(seconds_left, 5)
+            print(f'Waiting {math.ceil(seconds_to_wait/60.0)} minutes for a rate recharge...')
+            time.sleep(seconds_to_wait+60)
+
         try:
             author = commit.author
             #print(f"Commit author: [login:{author.login}, email:{author.email}, name:{author.name}]")
@@ -83,9 +92,10 @@ if __name__ == '__main__':
                         print('Exiting...')
                         exit()
                     except github.RateLimitExceededException:
-                        minutes_to_wait = 15
-                        print(f'You have exceeded your Github API rate limit for requests. Trying again in {minutes_to_wait} minutes...')
-                        time.sleep(60*minutes_to_wait)
+                        seconds_left = math.ceil(cfg.githubAPI.rate_limiting_resettime - time.time())
+                        seconds_to_wait = max(seconds_left, 5)
+                        print(f'You have exceeded your Github API rate limit for requests. Trying again in {math.ceil(seconds_to_wait/60.0)} minutes...')
+                        time.sleep(seconds_to_wait)
                         pass
                     except:
                         print('Unexpected error. Trying again...')

@@ -1,7 +1,7 @@
+/__pycache__
+/temp
+/data
 *.csv
 *.log
-token.ini
-email_settings.ini
-/repos
-/temp
-/__pycache__
+*.ini
+*.json

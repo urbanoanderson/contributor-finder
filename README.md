@@ -27,8 +27,8 @@ $   pip3 install python-dateutil
 [CONFIGURATION]
 github_api_token = your_github_api_token_here
 keywords = python, script, study, email
-max_repos = 1000
 min_stars = 50
+max_stars = 999999
 min_contributions = 10
 months_for_commits = 1
 clear_old_data = True
@@ -37,11 +37,11 @@ clear_old_data = True
 The possible configurations are:
 - `github_api_token`: your github api token
 - `keywords`: keywords for the repository search (you can use up to 5)
-- `max_repos`: maximum amount of repositories in which to search
 - `min_stars`: minimum number of stars a repository must have
+- `max_stars`: maximum amount of stars a repository can have
 - `min_contributions`: minimum amount of contributions a user must have done in found repos to be included
 - `months_for_commits` = search for contributions on commits in previous N months
-- `clear_old_data` = deletes old output data if set to True
+- `clear_old_data` = if set to True, deletes the old output data before running the script
 
 2. Run "python3 contributor_finder.py"
 
@@ -50,8 +50,24 @@ The possible configurations are:
 ```
 {
     "contributors": [
-        {"address": "cont1@gmail.org", "name": "John Snow", "login": "contjohn", "repo_name": "superrepo", "repo_stars": 234},
-        {"address": "cont2@gmail.org", "name": "Peter Parker", "login": "petepk", "repo_name": "spider", "repo_stars": 125}
+        {
+            "address": "john@gmail.com",
+            "name": "John Snow",
+            "login": "contjohn",
+            "repo_name": "superrepo",
+            "repo_url": "https://github.com/contjohn/superrepo.git",
+            "repo_stars": 234,
+            "contributions": 50
+        },
+        {
+            "address": "peter@gmail.com",
+            "name": "Peter Parker",
+            "login": "peterpk",
+            "repo_name": "spider",
+            "repo_url": "https://github.com/peterpk/spider.git",
+            "repo_stars": 125
+            "contributions": 50
+        }
     ]
 }
 ```

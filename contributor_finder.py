@@ -45,27 +45,19 @@ def wait_github_rate_recharge(githubAPI):
     log_all(f'You have exceeded your Github API rate limit for requests. Trying again in {minutes_to_wait} minutes...', LogLevel.ERROR)
     time.sleep(seconds_to_wait)
 
-def github_api_search_repos(githubAPI, query):
-    while(True):
-        try:
-            repos = githubAPI.search_repositories(query, 'stars', 'desc')
-            return repos
-        except RateLimitExceededException:
-            wait_github_rate_recharge(githubAPI)
+def query_repo_info(repo):
+    name = repo.name
+    description = repo.description
+    stars = repo.stargazers_count
+    url = repo.url
+    topics = repo.get_topics()
+    return topics
 
-def github_api_get_commits(githubAPI, repo, since):
+def safe_query_github(githubAPI, method, *args):
     while(True):
         try:
-            commits = repo.get_commits(since)
-            return repos
-        except RateLimitExceededException:
-            wait_github_rate_recharge(githubAPI)
-
-def github_api_get_author_from_commit(githubAPI, commit):
-    while(True):
-        try:
-            author = commit.author
-            return author
+            result = method(*args)
+            return result
         except RateLimitExceededException:
             wait_github_rate_recharge(githubAPI)
 
@@ -84,8 +76,8 @@ if __name__ == '__main__':
         if(len(keywords) > MAX_KEYWORDS_ALLOWED):
             log_console(f'Github API search only support {MAX_KEYWORDS_ALLOWED} or less keywords. Using the first {MAX_KEYWORDS_ALLOWED}...', LogLevel.WARNING)
             keywords = keywords[:MAX_KEYWORDS_ALLOWED]
-        max_repos = int(config['CONFIGURATION']['max_repos'])
         min_stars = int(config['CONFIGURATION']['min_stars'])
+        max_stars = int(config['CONFIGURATION']['max_stars'])
         min_contributions = int(config['CONFIGURATION']['min_contributions'])
         months_for_commits = int(config['CONFIGURATION']['months_for_commits'])
         clear_old_data = bool(config['CONFIGURATION']['clear_old_data'])
@@ -113,54 +105,57 @@ if __name__ == '__main__':
         log_all('Could not create client for github API. Please check your token. Exiting script...', LogLevel.ERROR)
         exit()
 
-    # Search relevant repositories
-    log_all(f"Searching for repos with at least {min_stars} stars and the following keywords: {keywords}")
-    # Query syntax: https://help.github.com/en/articles/understanding-the-search-syntax
-    #query = ' OR '.join(keywords) + '+in:readme+in:description'
-    query = f"{' OR '.join(keywords)}+in:name,description,readme+stars:>={min_stars}"
+    # Search for relevant repositories (query syntax: https://help.github.com/en/articles/searching-for-repositories)
+    log_all(f"Searching for repos with stars from {min_stars} to {max_stars} and the following keywords: {keywords}")
+    query = f"{' OR '.join(keywords)}+stars:{min_stars}..{max_stars}"
+    query_results = safe_query_github(githubAPI, githubAPI.search_repositories, query, 'stars', 'desc')
     repos = []
-    for repo in github_api_search_repos(githubAPI, query):
-        if(len(repos) >= max_repos):
-            break
-        if(repo.stargazers_count < min_stars):
-            break
+    for repo in query_results:
+        topics = safe_query_github(githubAPI, query_repo_info, repo)
+        if(repo.stargazers_count < min_stars or repo.stargazers_count > max_stars):
+            continue
+        log_file(f"Found repo '{repo.name}' with {repo.stargazers_count} stars ('{repo.url}')")
         repos.append(repo)
     log_all(f"Found {len(repos)} different repos")
 
     # Search for contributors in repos
     map_authors = {} # To Remove duplicate authors
-    for i in range(len(repos)):
-        repo = repos[i]
-        log_all(f"Searching for contributors on repo '{repo.name}'... [{i+1}/{len(repos)}]")
-        commits = repo.get_commits(since=(datetime.now() - relativedelta(months=months_for_commits)))
-        #commits = github_api_get_commits(githubAPI, repo, datetime.now()-relativedelta(months=months_for_commits))
-        for commit in commits:
-            try:
-                author = github_api_get_author_from_commit(githubAPI, commit)
-                if(author.login != None and author.email != None and author.name != None):
-                    contributions = 0 if map_authors.get(author.email, None) == None else map_authors[author.email][2] + 1
-                    map_authors[author.email] = (author, repo, contributions)
-            except AttributeError:
-                pass
+    i = 0
+    while(i < len(repos)):
+        try:
+            repo = repos[i]
+            log_all(f"Searching for contributors on repo '{repo.name}'... [{i+1}/{len(repos)}]")
+            commits = repo.get_commits(since=(datetime.now() - relativedelta(months=months_for_commits)))
+            #commits = github_api_get_commits(githubAPI, repo, (datetime.now()-relativedelta(months=months_for_commits)) )
+            for commit in commits:
+                try:
+                    author = commit.author
+                    if(author.login != None and author.email != None and author.name != None):
+                        contributions = 0 if map_authors.get(author.email, None) == None else map_authors[author.email]['contributions'] + 1
+                        contributor = {}
+                        contributor['address'] = author.email
+                        contributor['name'] = author.name
+                        contributor['login'] = author.login
+                        contributor['repo_name'] = repo.name
+                        contributor['repo_url'] = repo.url
+                        contributor['repo_stars'] = repo.stargazers_count
+                        contributor['contributions'] = contributions
+                        map_authors[author.email] = contributor
+                        log_file(f"Update contributor {author.name} with {contributions} contributions")
+                except AttributeError:
+                    pass
+            i = i + 1
+        except RateLimitExceededException:
+            wait_github_rate_recharge(githubAPI)
+            continue
 
     # Write contributors to output file
-    data = {}
-    data['contributors'] = []
-    for key in map_authors:
-        author = map_authors[key][0]
-        repo = map_authors[key][1]
-        contributions = map_authors[key][2]
-        contributor = {}
-        contributor['address'] = author.email
-        contributor['name'] = author.name
-        contributor['login'] = author.login
-        contributor['repo_name'] = repo.name
-        contributor['repo_stars'] = repo.stargazers_count
-        contributor['contributions'] = contributions
-
-        if(contributions >= min_contributions):
-            data['contributors'].append(contributor)
-
     log_all(f"Writing contributors to file...")
+    output_data = {'contributors': []}
+    for key in map_authors:
+        if(map_authors[key]['contributions'] >= min_contributions):
+            output_data['contributors'].append(map_authors[key])
+        else:
+            log_file(f"Skipping contributor '{map_authors[key]['name']}', he only has {map_authors[key]['contributions']} contributions")
     with open(OUTPUT_FILE_PATH, 'w') as f:
-        json.dump(data, f)
+        json.dump(output_data, f, sort_keys=True, indent=4)

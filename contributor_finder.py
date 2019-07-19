@@ -1,9 +1,11 @@
 import os
 import sys
 import time
+import http
 import math
 import json
 import shutil
+import requests
 import configparser
 from github import Github
 from github import RateLimitExceededException
@@ -66,7 +68,6 @@ def safe_query_github(githubAPI, method, *args):
 # ----------------------------------------------------------------------------------------
 
 if __name__ == '__main__':
-
     # Read settings
     try:
         config = configparser.ConfigParser()
@@ -126,7 +127,6 @@ if __name__ == '__main__':
             repo = repos[i]
             log_all(f"Searching for contributors on repo '{repo.name}'... [{i+1}/{len(repos)}]")
             commits = repo.get_commits(since=(datetime.now() - relativedelta(months=months_for_commits)))
-            #commits = github_api_get_commits(githubAPI, repo, (datetime.now()-relativedelta(months=months_for_commits)) )
             for commit in commits:
                 try:
                     author = commit.author
@@ -147,6 +147,10 @@ if __name__ == '__main__':
             i = i + 1
         except RateLimitExceededException:
             wait_github_rate_recharge(githubAPI)
+            continue
+        except (requests.exceptions.ReadTimeout, http.client.RemoteDisconnected):
+            log_all(f"Http request limit timed out, creating a new session", LogLevel.ERROR)
+            githubAPI = Github(github_api_token)
             continue
 
     # Write contributors to output file
